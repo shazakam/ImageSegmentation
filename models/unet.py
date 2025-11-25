@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
-from model_blocks import UNetEncoder, UNetDecoder, UNetMidBlock
-
-
+from models.model_blocks import UNetEncoder, UNetDecoder, UNetMidBlock
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, crop_sizes, final_filters):
         super().__init__()
@@ -22,7 +20,9 @@ class UNet(nn.Module):
                                           out_channels=self.out_channels*16, 
                                           kernel_size=self.kernel_size)
         
-        self.unet_decoder = UNetDecoder(in_channels=self.out_channels*8, out_channels=self.out_channels*4)
+        self.unet_decoder = UNetDecoder(in_channels=self.out_channels*16, 
+                                        out_channels=self.out_channels*8,
+                                        kernel_size=self.kernel_size)
 
         self.final_conv = nn.Conv2d(in_channels=self.out_channels,
                                out_channels=self.final_filters,
@@ -32,6 +32,7 @@ class UNet(nn.Module):
         x, skip_connections = self.unet_encoder(x) # Input: (B, C, H, W)
         x = self.unet_midblock(x)
         x = self.unet_decoder(x, skip_connections)
+        
         x =  self.final_conv(x)
 
         return x

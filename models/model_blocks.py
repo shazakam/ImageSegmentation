@@ -48,9 +48,11 @@ class UNetDecoderBlock(nn.Module):
         self.out_channels = out_channels
         self.kernel_size = kernel_size
 
-        self.up_conv_layer_1 = nn.Conv2d(in_channels=self.in_channels, 
-                                         out_channels=self.out_channels, 
-                                         kernel_size=self.kernel_size)
+        self.up_conv_layer_1 = nn.ConvTranspose2d(
+                                        in_channels=in_channels,
+                                        out_channels=out_channels,
+                                        kernel_size=2,
+                                        stride=2)
         
         self.conv_layer_2 = nn.Conv2d(in_channels=self.in_channels, 
                                       out_channels=self.out_channels,
@@ -64,7 +66,7 @@ class UNetDecoderBlock(nn.Module):
     def forward(self, x, skip_input):
 
         x = self.up_conv_layer_1(x) # B x out_channels x H x W
-        x = torch.concat([skip_input, x], dim = 1) # B x (2*out_channels) x H x W
+        x = torch.concat([skip_input, x], dim = 1) # B x (out_channels) x H x W
         x = self.relu(self.conv_layer_2(x)) # B x out_channels x (H-kernel_size-1) x (W-kernel_size-1)
         x = self.relu(self.conv_layer_3(x)) # B x out_channels x (H-2*kernel_size-3) x (W-2*kernel_size-2)
 
@@ -104,22 +106,22 @@ class UNetEncoder(nn.Module):
         self.kernel_size = kernel_size
         self.crop_sizes = crop_sizes
 
-        self.encoder_block_1 = UNetEncoder(in_channels=self.in_channels, 
+        self.encoder_block_1 = UNetEncoderBlock(in_channels=self.in_channels, 
                                       out_channels=self.out_channels, 
                                       kernel_size=kernel_size,
                                       crop_size=self.crop_sizes[0])
         
-        self.encoder_block_2 = UNetEncoder(in_channels=self.out_channels,
+        self.encoder_block_2 = UNetEncoderBlock(in_channels=self.out_channels,
                                       out_channels=self.out_channels*2,
                                       kernel_size=self.kernel_size,
                                       crop_size=self.crop_sizes[1])
         
-        self.encoder_block_3 = UNetEncoder(in_channels=self.out_channels*2,
+        self.encoder_block_3 = UNetEncoderBlock(in_channels=self.out_channels*2,
                                       out_channels=self.out_channels*4,
                                       kernel_size=self.kernel_size,
                                       crop_size=self.crop_sizes[2])
         
-        self.encoder_block_4 = UNetEncoder(in_channels=self.out_channels*4,
+        self.encoder_block_4 = UNetEncoderBlock(in_channels=self.out_channels*4,
                                       out_channels=self.out_channels*8,
                                       kernel_size=self.kernel_size,
                                       crop_size=self.crop_sizes[3])
@@ -134,12 +136,11 @@ class UNetEncoder(nn.Module):
     
 class UNetDecoder(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size, crop_sizes):
+    def __init__(self, in_channels, out_channels, kernel_size):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.crop_sizes = crop_sizes
 
         self.decoder_block_1 = UNetDecoderBlock(in_channels=self.in_channels,
                                                 out_channels=self.out_channels,
@@ -149,19 +150,19 @@ class UNetDecoder(nn.Module):
                                                 out_channels=self.out_channels//2,
                                                 kernel_size=self.kernel_size)
         
-        self.decoder_block_3 = UNetDecoderBlock(in_channels=self.out_channels,
+        self.decoder_block_3 = UNetDecoderBlock(in_channels=self.out_channels//2,
                                         out_channels=self.out_channels//4,
                                         kernel_size=self.kernel_size)
         
-        self.decoder_block_4 = UNetDecoderBlock(in_channels=self.out_channels,
+        self.decoder_block_4 = UNetDecoderBlock(in_channels=self.out_channels//4,
                                 out_channels=self.out_channels//8,
                                 kernel_size=self.kernel_size)
 
     def forward(self, x, skip_connections):
-
-        x = self.decoder_block_1(x, skip_connections[0])
-        x = self.decoder_block_2(x, skip_connections[1])
-        x = self.decoder_block_3(x, skip_connections[2])
-        x = self.decoder_block_4(x, skip_connections[3])
+        
+        x = self.decoder_block_1(x, skip_connections[3])
+        x = self.decoder_block_2(x, skip_connections[2])
+        x = self.decoder_block_3(x, skip_connections[1])
+        x = self.decoder_block_4(x, skip_connections[0])
         
         return x
