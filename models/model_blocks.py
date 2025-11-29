@@ -15,11 +15,13 @@ class UNetEncoderBlock(nn.Module):
 
         self.conv_layer_1 = nn.Conv2d(in_channels = self.in_channels,
                                       out_channels = self.out_channels,
-                                      kernel_size = self.kernel_size)
+                                      kernel_size = self.kernel_size,
+                                      padding = 1)
         
         self.conv_layer_2 = nn.Conv2d(in_channels = self.out_channels,
                                       out_channels = self.out_channels,
-                                      kernel_size = self.kernel_size)
+                                      kernel_size = self.kernel_size,
+                                      padding = 1)
         
         self.max_pool = nn.MaxPool2d(2, stride = 2)
 
@@ -36,7 +38,7 @@ class UNetEncoderBlock(nn.Module):
         x = self.relu(self.conv_layer_1(x)) # B x (out_channels) x (H-kernel_size-1) x (W-kernel_size-1)
         x = self.relu(self.conv_layer_2(x)) # B x (out_channels) x (H-2*kernel_size-2) x (W-2*kernel_size-2)
         x_skip = x.clone()
-        x_skip = self.center_crop(x_skip) # B x (out_channels) x crop_size x crop_size
+        # x_skip = self.center_crop(x_skip) # B x (out_channels) x crop_size x crop_size
         x = self.max_pool(x) # B x (out_channels) x ((H-2*kernel_size-2)//2 + 1) x ((W-2*kernel_size - 2)//2 + 1)
 
         return x, x_skip
@@ -56,11 +58,13 @@ class UNetDecoderBlock(nn.Module):
         
         self.conv_layer_2 = nn.Conv2d(in_channels=self.in_channels, 
                                       out_channels=self.out_channels,
-                                        kernel_size=self.kernel_size)
+                                        kernel_size=self.kernel_size,
+                                        padding=1)
         
         self.conv_layer_3 = nn.Conv2d(in_channels=self.out_channels, 
                                       out_channels=self.out_channels, 
-                                      kernel_size=self.kernel_size)
+                                      kernel_size=self.kernel_size,
+                                      padding=1)
         self.relu = nn.ReLU()
 
     def forward(self, x, skip_input):
@@ -83,11 +87,13 @@ class UNetMidBlock(nn.Module):
         self.relu = nn.ReLU()
         self.conv_layer_1 = nn.Conv2d(in_channels=in_channels, 
                                       out_channels=2*self.out_channels, 
-                                      kernel_size=self.kernel_size)
+                                      kernel_size=self.kernel_size,
+                                      padding=1)
         
         self.conv_layer_2 = nn.Conv2d(in_channels=2*self.out_channels,
                                       out_channels=self.out_channels,
-                                      kernel_size=self.kernel_size)
+                                      kernel_size=self.kernel_size,
+                                      padding=1)
 
     def forward(self, x):
         x = self.relu(self.conv_layer_1(x))
