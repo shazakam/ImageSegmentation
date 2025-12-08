@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 from models.model_blocks import UNetEncoder, UNetDecoder, UNetMidBlock
-class UNet(nn.Module):
+import pytorch_lightning as pl
+
+class UNet(pl.Module):
     def __init__(self, in_channels, out_channels, kernel_size, crop_sizes, final_filters):
         super().__init__()
 
@@ -36,3 +38,45 @@ class UNet(nn.Module):
         x =  self.final_conv(x)
 
         return x
+    
+class ImageSegmentationModel(pl.LightningModule):
+    def __init__(self, model, loss_function, optimiser, lr, scheduler_step, scheduler_gamma):
+        super().__init__()
+        self.model = model
+        self.loss_function = loss_function
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.model(x)
+
+        loss = self.loss_function(y, y_hat)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.model(x)
+
+        loss = self.loss_function(y, y_hat)
+        self.log("val_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        return loss
+    
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.model(x)
+
+        loss = self.loss_function(y, y_hat)
+        self.log("test_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        return loss
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+        
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+            "monitor": "val_loss"    # required for ReduceLROnPlateau
+        }
