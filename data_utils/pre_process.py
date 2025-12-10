@@ -39,22 +39,33 @@ def load_images_from_folder(folder_path):
     images = [np.asarray(Image.open(x)) for x in img_paths]
     return images
 
-def load_datasets(input_folder_path, label_folder_path, train_transforms, val_test_transforms):
-    # Load input data
-    input_images = load_images_from_folder(input_folder_path)
-
-    # Load in labels
-    label_images = load_images_from_folder(label_folder_path)
-    label_images = [x.long() for x in label_images]
-
+def load_arrays_splits(input_images, label_images, shuffle = True):
     # Create Train, Val and Test Split
     train_imgs, temp_imgs, train_labels, temp_labels = train_test_split(
-    input_images, label_images, test_size=0.3, random_state=42, shuffle=True
+    input_images, label_images, test_size=0.3, random_state=42, shuffle=shuffle
     )
 
     val_imgs, test_imgs, val_labels, test_labels = train_test_split(
-        temp_imgs, temp_labels, test_size=0.5, random_state=42, shuffle=True
+        temp_imgs, temp_labels, test_size=0.5, random_state=42, shuffle=shuffle
     )
+
+    return (train_imgs, train_labels), (val_imgs, val_labels), (test_imgs, test_labels)
+
+def load_images_and_labels(input_folder_path, label_folder_path):
+    # Load input data
+    input_images = load_images_from_folder(input_folder_path)
+
+    # Load in label
+    label_images = load_images_from_folder(label_folder_path)
+    label_images = label_images
+    return input_images, label_images
+
+def load_datasets(input_images, label_images, train_transforms, val_test_transforms, shuffle = True):
+
+    # Create Train, Val and Test Split
+    (train_imgs, train_labels), (val_imgs, val_labels),  (test_imgs, test_labels) = load_arrays_splits(input_images, 
+                                                                                                 label_images,
+                                                                                                 shuffle)
 
     # Create Train, Val and Test Torch Dataset
     train_dataset = ImageSegmentationDataset(train_imgs, train_labels, train_transforms)
