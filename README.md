@@ -4,9 +4,6 @@ Straightforward implementation of UNET Architecture from "U-Net: Convolutional N
 Includes testing scripts, model architecture, data pre-processing, model training and inference.
 
 TODO:
-
-1. Add padding to architecture to preserve image size 
-2. Change test according to 1.
-3. Set up data pre-processing pipeline
-4. Make training script with Lightning
-5. Make inference test script to show results
+1. Test Data Pre-processing functions
+2. Make training script with Lightning - Need to change torch model to lightning
+3. Make inference script and show results - Log results with W&B

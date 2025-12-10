@@ -1,7 +1,6 @@
 import torch 
 import torch.nn as nn
 from torchvision import transforms
-
 class UNetEncoderBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size, crop_size):
