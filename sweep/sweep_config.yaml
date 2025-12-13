@@ -1,0 +1,14 @@
+program: model_sweep.py
+name: unet-image-segmentation-sweep
+method: bayes
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  learning_rate:
+    min: 0.0001
+    max: 0.1
+  batch_size:
+    values: [16, 32, 64, 128]
+  epochs:
+    values: [5, 10, 15, ]

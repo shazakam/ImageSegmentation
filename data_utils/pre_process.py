@@ -6,6 +6,7 @@ from torchvision import transforms
 from sklearn.model_selection import train_test_split
 import numpy as np 
 import albumentations as A
+from pathlib import Path
 
 def preprocess_mask(mask):
     mask = mask.astype(np.float32)
@@ -39,7 +40,7 @@ def load_images_from_folder(folder_path):
     images = [np.asarray(Image.open(x)) for x in img_paths]
     return images
 
-def load_arrays_splits(input_images, label_images, shuffle = True):
+def load_arrays_splits(input_images, label_images, shuffle):
     # Create Train, Val and Test Split
     train_imgs, temp_imgs, train_labels, temp_labels = train_test_split(
     input_images, label_images, test_size=0.3, random_state=42, shuffle=shuffle
@@ -60,12 +61,26 @@ def load_images_and_labels(input_folder_path, label_folder_path):
     label_images = label_images
     return input_images, label_images
 
-def load_datasets(input_images, label_images, train_transforms, val_test_transforms, shuffle = True):
+def save_numpy_images(image_list, label_list, train_val_test, save_folder = "saved_data"):
+    img_dir = Path(f"{save_folder}/{train_val_test}/images")
+    mask_dir = Path(f"{save_folder}/{train_val_test}/masks")
+
+    for idx, image_np, label_np in enumerate(zip(image_list, label_list)):
+        save_img_path = str(img_dir / f"0{idx}.png")
+        save_mask_path = str(mask_dir / f"0{idx}.png")
+        Image.fromarray(image_np).save(save_img_path)
+        Image.fromarray(label_np).save(save_mask_path)
+
+def load_datasets(input_images, label_images, train_transforms, val_test_transforms, save_path = None, shuffle = True):
 
     # Create Train, Val and Test Split
     (train_imgs, train_labels), (val_imgs, val_labels),  (test_imgs, test_labels) = load_arrays_splits(input_images, 
-                                                                                                 label_images,
-                                                                                                 shuffle)
+                                                                                                    label_images,
+                                                                                                    shuffle)
+    if save_path != None:
+        save_numpy_images(train_imgs, train_labels, "train", save_path)
+        save_numpy_images(val_imgs, val_labels, "validation", save_path)
+        save_numpy_images(test_imgs, test_labels, "test", save_path)
 
     # Create Train, Val and Test Torch Dataset
     train_dataset = ImageSegmentationDataset(train_imgs, train_labels, train_transforms)

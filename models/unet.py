@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
 from models.model_blocks import UNetEncoder, UNetDecoder, UNetMidBlock
-import pytorch_lightning as pl
-
-class UNet(pl.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, crop_sizes, final_filters):
+import lightning as L
+from data_utils.metrics import binary_iou
+class UNet(L.LightningModule):
+    def __init__(self, in_channels, out_channels, 
+                 kernel_size, crop_sizes, 
+                 final_filters):
+        
         super().__init__()
 
         self.in_channels = in_channels
@@ -39,16 +42,21 @@ class UNet(pl.Module):
 
         return x
     
-class ImageSegmentationModel(pl.LightningModule):
-    def __init__(self, model, loss_function, optimiser, lr, scheduler_step, scheduler_gamma):
+class ImageSegmentationModel(L.LightningModule):
+    def __init__(self, model, loss_function, lr, scheduler_step, scheduler_gamma, monitor_metric, monitor_metric_name):
         super().__init__()
         self.model = model
         self.loss_function = loss_function
+        self.lr = lr
+        self.schedule_gamma = scheduler_gamma
+        self.schedule_step = scheduler_step
+        self.metric = monitor_metric
+        self.monitor_metric_name = monitor_metric_name
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-
+        y_hat = torch.squeeze(y_hat)
         loss = self.loss_function(y, y_hat)
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
 
@@ -57,26 +65,35 @@ class ImageSegmentationModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
+        y_hat = torch.squeeze(y_hat)
 
         loss = self.loss_function(y, y_hat)
+        val_metric = self.metric(y_hat, y)
+
         self.log("val_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log(f"val_{self.monitor_metric_name}", val_metric, on_epoch=True, logger=True )
         return loss
     
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
+        y_hat = torch.squeeze(y_hat)
 
         loss = self.loss_function(y, y_hat)
+        test_metric = self.metric(y_hat, y)
+
         self.log("test_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log(f"test_{self.monitor_metric_name}", test_metric, on_epoch=True, logger=True )
+
         return loss
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, mode = "max", patience = 10, step_size = self.schedule_step, gamma=self.schedule_gamma)
         
         return {
             "optimizer": optimizer,
             "lr_scheduler": scheduler,
-            "monitor": "val_loss"    # required for ReduceLROnPlateau
+            "monitor": f"val_{self.monitor_metric_name}", # required for ReduceLROnPlateau
         }
