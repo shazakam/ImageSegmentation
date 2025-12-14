@@ -65,9 +65,14 @@ def save_numpy_images(image_list, label_list, train_val_test, save_folder = "sav
     img_dir = Path(f"{save_folder}/{train_val_test}/images")
     mask_dir = Path(f"{save_folder}/{train_val_test}/masks")
 
-    for idx, image_np, label_np in enumerate(zip(image_list, label_list)):
-        save_img_path = str(img_dir / f"0{idx}.png")
-        save_mask_path = str(mask_dir / f"0{idx}.png")
+    # Create directories if they don't exist
+    img_dir.mkdir(parents=True, exist_ok=True)
+    mask_dir.mkdir(parents=True, exist_ok=True)
+
+    for idx, images in enumerate(zip(image_list, label_list)):
+        image_np, label_np = images
+        save_img_path = str(img_dir / f"{idx:04d}.png")
+        save_mask_path = str(mask_dir / f"{idx:04d}.png")
         Image.fromarray(image_np).save(save_img_path)
         Image.fromarray(label_np).save(save_mask_path)
 
