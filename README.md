@@ -8,4 +8,3 @@ TODO:
 1.1. Setting Sweep configurations in sweep_config.yaml 
 1.1 find other hparams to sweep over
 2. Make inference script and show results - Log results with W&B
-3. Check validation metrics which we are trying to optimise for

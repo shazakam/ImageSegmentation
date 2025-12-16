@@ -7,27 +7,28 @@ from sklearn.model_selection import train_test_split
 import numpy as np 
 import albumentations as A
 from pathlib import Path
-
+import torch
 def preprocess_mask(mask):
     mask = mask.astype(np.float32)
-    mask[mask == 2.0] = 0.0
-    mask[(mask == 1.0) | (mask == 3.0)] = 1.0
+    mask[(mask == 2.0) | (mask == 3.0)] = 0.0
+    mask[(mask == 1.0)] = 1.0
     return mask
 class ImageSegmentationDataset(Dataset):
-    def __init__(self, image_list, image_labels, transforms):
+    def __init__(self, image_path_list, image_path_labels, transforms):
         super().__init__()
-        self.images = image_list
-        self.labels = image_labels
+        self.images = image_path_list
+        self.labels = image_path_labels
         self.transforms = transforms
     
     def __getitem__(self, index):
-        img = self.images[index]
-        label = preprocess_mask(self.labels[index])
+        img = np.asarray(Image.open(self.images[index]))
+        label_img = np.asarray(Image.open(self.labels[index]))
+        label = preprocess_mask(label_img)
 
         if self.transforms:
             transformed = self.transforms(image = img, mask = label)
             img = transformed["image"]
-            label = transformed["mask"]
+            label = torch.unsqueeze(transformed["mask"], dim = 0)
 
         return img, label
     
@@ -37,8 +38,8 @@ class ImageSegmentationDataset(Dataset):
 def load_images_from_folder(folder_path):
     img_paths = sorted([f"{folder_path}/{x}" for x in os.listdir(folder_path) if ('.jpg' in x) or ('.png' in x)])
 
-    images = [np.asarray(Image.open(x)) for x in img_paths]
-    return images
+    # images = [np.asarray(Image.open(x)) for x in img_paths]
+    return img_paths
 
 def load_arrays_splits(input_images, label_images, shuffle):
     # Create Train, Val and Test Split
@@ -58,9 +59,10 @@ def load_images_and_labels(input_folder_path, label_folder_path):
 
     # Load in label
     label_images = load_images_from_folder(label_folder_path)
-    label_images = label_images
+
     return input_images, label_images
 
+# Change this to just save the image paths instead in a txt file
 def save_numpy_images(image_list, label_list, train_val_test, save_folder = "saved_data"):
     img_dir = Path(f"{save_folder}/{train_val_test}/images")
     mask_dir = Path(f"{save_folder}/{train_val_test}/masks")
@@ -76,6 +78,8 @@ def save_numpy_images(image_list, label_list, train_val_test, save_folder = "sav
         Image.fromarray(image_np).save(save_img_path)
         Image.fromarray(label_np).save(save_mask_path)
 
+# Change this to save the image paths instead
+# Image path lists -> train val test split
 def load_datasets(input_images, label_images, train_transforms, val_test_transforms, save_path = None, shuffle = True):
 
     # Create Train, Val and Test Split

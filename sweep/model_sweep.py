@@ -1,35 +1,41 @@
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch import Trainer
 import wandb
-from models.unet import UNet
+from models.unet import UNet, ImageSegmentationModel
 from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
 import yaml
 from data_utils.pre_process import load_datasets, load_images_and_labels
 import albumentations as A
 from torch.utils.data import DataLoader
+import torch
 
 def load_sweep_config(path: str):
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
 # Sweep training entry point
-def train_sweep(project, train_dataset, val_dataset):
-    config = wandb.config
+def train_sweep(project, train_dataset, val_dataset, test_dataset):
 
-    logger = WandbLogger(
-        project=project,
-        log_model=True
-    )
+    with wandb.init(project=project) as run:
+        config = wandb.config
     
     # GET ALL NECESSARY HPARAMS OUT OF CONFIG AND PASS THEM
 
-    model = UNet(in_channels=3, 
+    unet = UNet(in_channels=3, 
             out_channels=64,
             kernel_size=3, 
-            crop_sizes=[392, 200, 104, 56], 
-            final_filters=1)
-
-    logger = WandbLogger(project="UNet-Image-Segmentation")
+            final_filters=1,
+            encoder_dropout=config.encoder_dropout)
+    
+    loss_criterion = torch.nn.BCEWithLogitsLoss()
+    
+    segmentation_model = ImageSegmentationModel(model = unet,
+                                                loss_function = loss_criterion,
+                                                lr = config.learning_rate,
+                                                scheduler_step = config.scheduler_step,
+                                                scheduler_gamma = config.scheduler_gamma)
+    
+    logger = WandbLogger(log_model=True)
 
     callbacks = [EarlyStopping(monitor="val_loss", mode="min"), 
                 LearningRateMonitor(logging_interval='step'),
@@ -43,20 +49,36 @@ def train_sweep(project, train_dataset, val_dataset):
     
     train_dataloader = DataLoader(train_dataset, 
                                     batch_size=config.batch_size,
-                                    shuffle=True)
+                                    shuffle=True,
+                                    num_workers=1,
+                                    persistent_workers=True)
     
     val_dataloader = DataLoader(val_dataset,
                                 batch_size=config.batch_size,
-                                shuffle=False)
+                                shuffle=False,
+                                num_workers=1,
+                                persistent_workers=True)
+    
+    test_dataloader = DataLoader(test_dataset,
+                                 batch_size=config.batch_size,
+                                 shuffle=False,
+                                 num_workers=1,
+                                 persistent_workers=True)
     
     trainer = Trainer(
         logger=logger,
-        max_epochs=config.epochs, # Epochs in config
-        callbacks=callbacks
+        max_epochs=config.max_epochs, # Epochs in config
+        callbacks=callbacks,
+        accelerator="mps",
+        log_every_n_steps=config.batch_size
     )
 
-    trainer.fit(model,train_dataloader, val_dataloader)
+    trainer.fit(segmentation_model, train_dataloader, val_dataloader)
 
+    test_results = trainer.test(ImageSegmentationModel, test_dataloader)
+    test_iou = test_results[0]["test_iou"]
+
+    run.log({"test_iou", test_iou})
 
 
 if __name__ == "__main__":
@@ -71,6 +93,8 @@ if __name__ == "__main__":
     print("Loading Images")
     input_images, label_images = load_images_and_labels(input_folder_path=input_folder_path,
                                                         label_folder_path=label_folder_path)
+    input_images = input_images[:600]
+    label_images = label_images[:600]
 
     print("Initialising Transforms")
     train_transforms = A.Compose([
@@ -111,6 +135,9 @@ if __name__ == "__main__":
 
     print("Starting Sweep")
     # Start sweep with agent
-    wandb.agent(sweep_id=sweep_id, function=lambda x : train_sweep(wandb_project, 
-                                                                train_dataset, 
-                                                                val_dataset)) # CHANGE HERE EXPECTS FUCNTION WITH NO INPUT
+    wandb.agent(sweep_id=sweep_id, 
+                function=lambda : train_sweep(wandb_project, 
+                                            train_dataset, 
+                                            val_dataset,
+                                            test_dataset),
+                count = 5) 
