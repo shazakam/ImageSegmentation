@@ -3,14 +3,15 @@ import torch.nn as nn
 from torchvision import transforms
 class UNetEncoderBlock(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size, crop_size):
+    def __init__(self, in_channels, out_channels, kernel_size, dropout = 0):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.center_crop = transforms.CenterCrop(crop_size)
-
         self.relu = nn.ReLU()
+        self.dropout = dropout
+        if dropout != 0:
+            self.drop = nn.Dropout2d(dropout)
 
         self.conv_layer_1 = nn.Conv2d(in_channels = self.in_channels,
                                       out_channels = self.out_channels,
@@ -35,9 +36,13 @@ class UNetEncoderBlock(nn.Module):
         """
 
         x = self.relu(self.conv_layer_1(x)) # B x (out_channels) x (H-kernel_size-1) x (W-kernel_size-1)
-        x = self.relu(self.conv_layer_2(x)) # B x (out_channels) x (H-2*kernel_size-2) x (W-2*kernel_size-2)
+
+        if self.dropout != 0:
+            x = self.drop(self.relu(self.conv_layer_2(x))) # B x (out_channels) x (H-2*kernel_size-2) x (W-2*kernel_size-2)
+        else:
+            x = self.relu(self.conv_layer_2(x))
+
         x_skip = x.clone()
-        # x_skip = self.center_crop(x_skip) # B x (out_channels) x crop_size x crop_size
         x = self.max_pool(x) # B x (out_channels) x ((H-2*kernel_size-2)//2 + 1) x ((W-2*kernel_size - 2)//2 + 1)
 
         return x, x_skip
@@ -65,6 +70,7 @@ class UNetDecoderBlock(nn.Module):
                                       kernel_size=self.kernel_size,
                                       padding=1)
         self.relu = nn.ReLU()
+        
 
     def forward(self, x, skip_input):
 
@@ -104,32 +110,30 @@ class UNetEncoder(nn.Module):
 
     # Probably a more slick way of doing this with ModuleList
 
-    def __init__(self, in_channels, out_channels, kernel_size, crop_sizes):
+    def __init__(self, in_channels, out_channels, kernel_size, dropout = 0):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.crop_sizes = crop_sizes
+
+        self.dropout = dropout
 
         self.encoder_block_1 = UNetEncoderBlock(in_channels=self.in_channels, 
                                       out_channels=self.out_channels, 
-                                      kernel_size=kernel_size,
-                                      crop_size=self.crop_sizes[0])
-        
+                                      kernel_size=kernel_size)        
         self.encoder_block_2 = UNetEncoderBlock(in_channels=self.out_channels,
                                       out_channels=self.out_channels*2,
-                                      kernel_size=self.kernel_size,
-                                      crop_size=self.crop_sizes[1])
+                                      kernel_size=self.kernel_size)
         
         self.encoder_block_3 = UNetEncoderBlock(in_channels=self.out_channels*2,
                                       out_channels=self.out_channels*4,
                                       kernel_size=self.kernel_size,
-                                      crop_size=self.crop_sizes[2])
+                                      dropout=self.dropout)
         
         self.encoder_block_4 = UNetEncoderBlock(in_channels=self.out_channels*4,
                                       out_channels=self.out_channels*8,
-                                      kernel_size=self.kernel_size,
-                                      crop_size=self.crop_sizes[3])
+                                      kernel_size=self.kernel_size, 
+                                      dropout=self.dropout)
 
     def forward(self, x):
         x, x_skip_1 = self.encoder_block_1(x)

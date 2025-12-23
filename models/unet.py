@@ -1,22 +1,26 @@
 import torch
 import torch.nn as nn
 from models.model_blocks import UNetEncoder, UNetDecoder, UNetMidBlock
-import pytorch_lightning as pl
-
-class UNet(pl.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, crop_sizes, final_filters):
+import lightning as L
+from data_utils.metrics import binary_iou
+class UNet(L.LightningModule):
+    def __init__(self, in_channels, out_channels, 
+                 kernel_size, 
+                 final_filters,
+                 encoder_dropout):
+        
         super().__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.crop_sizes = crop_sizes
         self.final_filters = final_filters
+        self.encoder_dropout = encoder_dropout
 
         self.unet_encoder = UNetEncoder(in_channels=self.in_channels,
                                         out_channels=self.out_channels,
                                         kernel_size=self.kernel_size,
-                                        crop_sizes=self.crop_sizes)
+                                        dropout=self.encoder_dropout)
         
         self.unet_midblock = UNetMidBlock(in_channels=self.out_channels*8, 
                                           out_channels=self.out_channels*16, 
@@ -39,44 +43,55 @@ class UNet(pl.Module):
 
         return x
     
-class ImageSegmentationModel(pl.LightningModule):
-    def __init__(self, model, loss_function, optimiser, lr, scheduler_step, scheduler_gamma):
+class ImageSegmentationModel(L.LightningModule):
+    def __init__(self, model, loss_function, lr, scheduler_step, scheduler_gamma):
         super().__init__()
         self.model = model
         self.loss_function = loss_function
+        self.lr = lr
+        self.scheduler_gamma = scheduler_gamma
+        self.scheduler_step = scheduler_step
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-
         loss = self.loss_function(y, y_hat)
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True, on_step=True,prog_bar=True, logger=True)
 
         return loss
     
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-
         loss = self.loss_function(y, y_hat)
-        self.log("val_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+
+        self.log("val_loss", loss, on_epoch=True, on_step=True, prog_bar=True, logger=True)
         return loss
     
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-
         loss = self.loss_function(y, y_hat)
+        test_metric = binary_iou(y_hat, y)
+
         self.log("test_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log("test_biou", test_metric)
+
         return loss
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
-        
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                        optimizer,
+                        mode="min",
+                        factor=self.scheduler_gamma,
+                        patience=self.scheduler_step,
+                    )
         return {
             "optimizer": optimizer,
-            "lr_scheduler": scheduler,
-            "monitor": "val_loss"    # required for ReduceLROnPlateau
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+            }
         }

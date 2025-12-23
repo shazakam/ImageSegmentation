@@ -13,8 +13,7 @@ def test_encoder_block_forward_x_out():
     in_channels = 3
     out_channels = 64
     kernel_size = 3
-    crop_sizes = 392
-    encoder = UNetEncoderBlock(in_channels,out_channels, kernel_size, crop_sizes)
+    encoder = UNetEncoderBlock(in_channels,out_channels, kernel_size)
     test_encoder_input = torch.randn((16,in_channels,512,512))
 
     x, _ = encoder(test_encoder_input) 
@@ -24,8 +23,7 @@ def test_encoder_block_forward_x_skip_out():
     in_channels = 3
     out_channels = 64
     kernel_size = 3
-    crop_size = 392
-    encoder = UNetEncoderBlock(in_channels, out_channels, kernel_size, crop_size)
+    encoder = UNetEncoderBlock(in_channels, out_channels, kernel_size)
     test_encoder_input = torch.randn((16, in_channels, 512, 512))
 
     _, x_skip = encoder(test_encoder_input) 
@@ -56,9 +54,8 @@ def test_encoder_forward_x_out():
     in_channels = 3
     out_channels = 64
     kernel_size = 3
-    crop_sizes = [392, 200, 104, 56]
     x = torch.randn((16, in_channels, 512, 512))
-    UNEncoder = UNetEncoder(in_channels, out_channels, kernel_size, crop_sizes)
+    UNEncoder = UNetEncoder(in_channels, out_channels, kernel_size)
     x, _ = UNEncoder(x)
 
     assert(x.shape == (16, 512, 32, 32)) 
@@ -67,9 +64,8 @@ def test_encoder_forward_x_skip_out():
     in_channels = 3
     out_channels = 64
     kernel_size = 3
-    crop_sizes = [392, 200, 104, 56]
     x = torch.randn((16, in_channels, 512, 512))
-    UNEncoder = UNetEncoder(in_channels, out_channels, kernel_size, crop_sizes)
+    UNEncoder = UNetEncoder(in_channels, out_channels, kernel_size)
     _, x_skip = UNEncoder(x)
 
     assert(x_skip[0].shape == (16, 64, 512, 512)) 
@@ -99,12 +95,12 @@ def test_unet_forward():
     unet = UNet(in_channels=3, 
                 out_channels=64,
                 kernel_size=3, 
-                crop_sizes=[392, 200, 104, 56], 
-                final_filters=2)
+                final_filters=1,
+                encoder_dropout=0.1)
 
     x = torch.randn((16, 3, 512, 512))
     x = unet(x)
-    assert(x.shape == (16, 2, 512, 512))
+    assert(x.shape == (16, 1, 512, 512))
 
 
 
