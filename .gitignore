@@ -8,3 +8,5 @@ __pycache__/
 wandb
 saved_data
 unet-image-segmentation-sweeps
+lightning_logs
+*.ckpt

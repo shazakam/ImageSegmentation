@@ -56,7 +56,7 @@ class ImageSegmentationModel(L.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss_function(y, y_hat)
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True, on_step=True,prog_bar=True, logger=True)
 
         return loss
     
@@ -65,7 +65,7 @@ class ImageSegmentationModel(L.LightningModule):
         y_hat = self.model(x)
         loss = self.loss_function(y, y_hat)
 
-        self.log("val_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log("val_loss", loss, on_epoch=True, on_step=True, prog_bar=True, logger=True)
         return loss
     
     def test_step(self, batch, batch_idx):
