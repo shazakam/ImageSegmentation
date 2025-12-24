@@ -93,8 +93,8 @@ if __name__ == "__main__":
     print("Loading Images")
     input_images, label_images = load_images_and_labels(input_folder_path=input_folder_path,
                                                         label_folder_path=label_folder_path)
-    input_images = input_images[:600]
-    label_images = label_images[:600]
+    input_images = input_images[:]
+    label_images = label_images[:]
 
     print("Initialising Transforms")
     train_transforms = A.Compose([
@@ -140,4 +140,4 @@ if __name__ == "__main__":
                                             train_dataset, 
                                             val_dataset,
                                             test_dataset),
-                count = 1) 
+                count = 3) 

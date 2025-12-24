@@ -6,10 +6,10 @@ metric:
   name: test_iou
 parameters:
   learning_rate:
-    min: 0.00001
+    min: 0.000001
     max: 0.0001
   batch_size:
-    values: [8, 16]
+    values: [32]
   max_epochs:
     values: [100]
   out_channels:
