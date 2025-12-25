@@ -1,4 +1,4 @@
-/oxford-iiit-pet
+oxford-iiit-pet/*
 *.pyc
 *.DS_Store
 .venv/
@@ -6,7 +6,6 @@ __pycache__/
 *.pyc
 .pytest_cache
 wandb
-saved_data
-unet-image-segmentation-sweeps
-lightning_logs
+saved_data/*
+unet-image-segmentation-sweeps/*
 *.ckpt
