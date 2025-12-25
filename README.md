@@ -24,3 +24,5 @@ To get started you will need to:
 
 To run the sweep you will need to log in to WandB first and then you can run: 
 `python -m sweep.model_sweep`
+
+Models were trained on a T4 GPU on Lightning Cloud
