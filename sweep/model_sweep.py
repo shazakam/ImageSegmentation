@@ -59,11 +59,11 @@ def train_sweep(project, train_dataset, val_dataset, test_dataset):
                                 num_workers=1,
                                 persistent_workers=True)
     
-    test_dataloader = DataLoader(test_dataset,
-                                 batch_size=config.batch_size,
-                                 shuffle=False,
-                                 num_workers=1,
-                                 persistent_workers=True)
+    # test_dataloader = DataLoader(test_dataset,
+    #                              batch_size=config.batch_size,
+    #                              shuffle=False,
+    #                              num_workers=1,
+    #                              persistent_workers=True)
     
     trainer = Trainer(
         logger=logger,
@@ -74,11 +74,6 @@ def train_sweep(project, train_dataset, val_dataset, test_dataset):
     )
 
     trainer.fit(segmentation_model, train_dataloader, val_dataloader)
-
-    test_results = trainer.test(ImageSegmentationModel, test_dataloader)
-    test_iou = test_results[0]["test_iou"]
-
-    run.log({"test_iou", test_iou})
 
 
 if __name__ == "__main__":
@@ -99,20 +94,19 @@ if __name__ == "__main__":
     print("Initialising Transforms")
     train_transforms = A.Compose([
         A.Resize(300, 300),
-        A.HorizontalFlip(p=0.5),                  
-        A.RandomCrop(height=256, width=256), 
-        A.Normalize(mean=[0.485, 0.456, 0.406],
-                            std=[0.229, 0.224, 0.225],
-                            max_pixel_value=255.0,
-                            normalization="standard", # Default
-                            p=1.0),
-        A.ToTensorV2()                            
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),            # if orientation-invariant
+        A.Rotate(limit=15, p=0.5),        # small rotations
+        A.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+            max_pixel_value=255.0,
+        ),
+        A.ToTensorV2()
     ])
 
     val_test_transforms = A.Compose([
-        A.Resize(300, 300),
-        A.HorizontalFlip(p=0.5),                  
-        A.RandomCrop(height=256,width=256),
+        A.Resize(300, 300),               
         A.Normalize(mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225],
                     max_pixel_value=255.0,
